@@ -21,9 +21,21 @@
 # You should have received a copy of the GNU General Public License along with this program.
 # If not, see <http://www.gnu.org/licenses/>.
 #---------------------------------------------------------------------------------------------------
+# 
+#    Note: there are no install/uninstall/upgrade methods in this module as it is intended to be
+#    installed only as required then uninstalled
+#---------------------------------------------------------------------------------------------------
+
 class ImportExport extends CMSModule
 {
     const MODULE_VERSION = '1.0beta1';
+
+    const IMPORT_EXPORT_TYPES = [
+        'wp_xml_to_LISE',
+        // 'wp_db_to_News',         // not implemented - needs updating - if actually needed???
+    ];
+    const CLASS_PREFIX = 'ImportExport\impexp_';
+    const LANG_PROMPT_SUFFIX = '_prompt';
 
     public function GetName() { return 'ImportExport'; }
     public function GetFriendlyName() { return $this->Lang('friendlyname'); }
@@ -40,10 +52,44 @@ class ImportExport extends CMSModule
         $uid = get_userid();
         return UserOperations::get_instance()->IsSuperuser($uid);
     }
+    public function GetHeaderHTML() { return $this->get_header_css_js(); }
     public function InstallPostMessage() { return $this->Lang('postinstall'); }
     public function UninstallPostMessage() { return $this->Lang('postuninstall'); }
 
 
+
+    /**
+     * output the css and js file links to be included in the head for the admin interface
+     * @return string
+     */
+    public function get_header_css_js() {
+        if (cms_utils::get_app_data('ImportExport_js_css_loaded')) return '';
+        $path = $this->GetModuleURLPath();
+        $admin_css_js = '
+            <link rel="stylesheet" type="text/css" href="'.$path.'/lib/css/importexport_admin.css?v'.self::MODULE_VERSION.'">
+            <script language="javascript" src="'.$path.'/lib/js/importexport_admin.js?v'.self::MODULE_VERSION.'"></script>';
+        cms_utils::set_app_data('ImportExport_js_css_loaded', 1);
+
+        return $admin_css_js;
+    }
+
+
+
+    /**
+     *  get array of users and ids
+     *  @return array of id => username
+     */
+    public function get_users()
+    {
+        $user_list = [];
+        $userops = \UserOperations::get_instance();
+        $allusers = $userops->LoadUsers();
+        foreach ($allusers as $user) {
+            $user_list[$user->id] = $user->username;
+        }
+        
+        return $user_list;
+    }
 
 }
 

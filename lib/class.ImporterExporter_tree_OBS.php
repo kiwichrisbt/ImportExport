@@ -1,5 +1,10 @@
 <?php
 
+//  
+//  NOTE: this class is obsolete - it is not used in the current version of the module
+//  it is retained for reference only
+//
+
 class ImporterExporter_tree extends cms_tree
 {
     public function get_parents($tagname)

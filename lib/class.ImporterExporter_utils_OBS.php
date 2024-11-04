@@ -34,6 +34,13 @@
 #-------------------------------------------------------------------------
 #END_LICENSE
 
+//  
+//  NOTE: this class is obsolete - it is not used in the current version of the module
+//  it is retained for reference only
+//
+
+
+
 final class ImporterExporter_utils
 {
   private static $wp_dbprefix;
@@ -142,48 +149,49 @@ final class ImporterExporter_utils
   }
 
 
-    public static function get_new_url( $news_rec, $wp_rec )
-    {
-        $news_url = '';
-        $error = FALSE;
-        $mod = cms_utils::get_module('ImporterExporter');
-        if ( isset($wp_rec['post_name']) ) {
-            $news_url = $wp_rec['post_name'];
-        } else {
-            $news_url = munge_string_to_url($wp_rec['post_title'], false, true);
-        }
+    // MOVED into ImportExportBase - not yet tested
 
-        // check for starting or ending slashes
-        if (startswith($news_url, '/') || endswith($news_url, '/'))
-            $error = $mod->Lang('error_invalidurl');
-        if ($error===FALSE) {
-            // check for invalid chars.
-            $translated = munge_string_to_url($news_url, false, true);
-            if (strtolower($translated) != strtolower($news_url))
-                $error = $mod->Lang('error_invalidurl');
-        }
+    // public static function get_new_url( $news_rec, $wp_rec )
+    // {
+    //     $news_url = '';
+    //     $error = FALSE;
+    //     $mod = cms_utils::get_module('ImporterExporter');
+    //     if ( isset($wp_rec['post_name']) ) {
+    //         $news_url = $wp_rec['post_name'];
+    //     } else {
+    //         $news_url = munge_string_to_url($wp_rec['post_title'], false, true);
+    //     }
 
-        if ($error===FALSE) {
-            // make sure this url isn't taken.
-            cms_route_manager::load_routes();
-            $route = cms_route_manager::find_match($news_url, TRUE);
+    //     // check for starting or ending slashes
+    //     if (startswith($news_url, '/') || endswith($news_url, '/'))
+    //         $error = $mod->Lang('error_invalidurl');
+    //     if ($error===FALSE) {
+    //         // check for invalid chars.
+    //         $translated = munge_string_to_url($news_url, false, true);
+    //         if (strtolower($translated) != strtolower($news_url))
+    //             $error = $mod->Lang('error_invalidurl');
+    //     }
 
-            if ($route) {
-                $dflts = $route->get_defaults();
-                if ($route['key1'] != $mod->GetName() || !isset($dflts['articleid']) || $dflts['articleid'] != $news_rec['news_id']) {
-                    // we're adding an article, not editing... any matching route is bad.
-                    $error = $mod->Lang('error_invalidurl');
-                }
-            }
-        }
+    //     if ($error===FALSE) {
+    //         // make sure this url isn't taken.
+    //         cms_route_manager::load_routes();
+    //         $route = cms_route_manager::find_match($news_url, TRUE);
 
-        if ($error===FALSE) {
-            return $news_url;
-        }
+    //         if ($route) {
+    //             $dflts = $route->get_defaults();
+    //             if ($route['key1'] != $mod->GetName() || !isset($dflts['articleid']) || $dflts['articleid'] != $news_rec['news_id']) {
+    //                 // we're adding an article, not editing... any matching route is bad.
+    //                 $error = $mod->Lang('error_invalidurl');
+    //             }
+    //         }
+    //     }
 
-        return '';
-    }
+    //     if ($error===FALSE) {
+    //         return $news_url;
+    //     }
+
+    //     return '';
+    // }
 
 
 }
-?>

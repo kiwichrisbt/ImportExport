@@ -3,8 +3,7 @@
 
 <p>THE REST NEEDS UPDATING...</p>
 
-In Wordpress go to Tools > Export
-choose either Posts or Pages - if you are exporting both maybe rename each file so you know which is posts and which is pages
+In Wordpress go to Tools > Export, and choose either Posts or Pages. (Tip: maybe rename each file so you know which is posts and which is pages).
 
 Note: this module should be installed when required and then uninstalled 
 Permissions: only admin users can access and use this module

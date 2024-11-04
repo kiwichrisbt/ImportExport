@@ -1,0 +1,64 @@
+.import-export * {box-sizing:border-box;}
+.import-export .pageoverflow {margin-bottom:10px;}
+
+/* icons from icomoon */
+@font-face {font-family:'icomoon'; 
+    src: url('icomoon.eot?f1kita');
+    src: url('icomoon.eot?f1kita#iefix') format('embedded-opentype'),
+         url('icomoon.ttf?f1kita') format('truetype'),
+         url('icomoon.woff?f1kita') format('woff'),
+         url('icomoon.svg?f1kita#icomoon') format('svg');
+    font-weight:normal; font-style:normal; font-display:block;}
+[class^='imp-exp-icon-'], [class*=' imp-exp-icon-'] {font-family:'icomoon' !important; font-weight:normal; 
+    font-style:normal; font-variant:normal; line-height:1;text-transform:none; font-size:16px;
+    color:inherit; -webkit-font-smoothing:antialiased; -moz-osx-font-smoothing:grayscale;}
+
+.imp-exp-icon-file-o:before {content:'\e90a';}
+.imp-exp-icon-minus-solid:before {content:'\e900';}
+.imp-exp-icon-plus-solid:before {content:'\e901';}
+.imp-exp-icon-image:before {content:'\e90d';}
+.imp-exp-icon-images:before {content:'\e90e';}
+.imp-exp-icon-menu2:before {content:'\e9be';}
+.imp-exp-icon-plus:before {content:'\ea0a';}
+.imp-exp-icon-minus:before {content:'\ea0b';}
+.imp-exp-icon-trash-can-regular:before {content:'\e902';}
+.imp-exp-icon-trash-regular:before {content:'\e905';}
+.imp-exp-icon-trash-can-solid:before {content:'\e906';}
+.imp-exp-icon-grip-dots-solid:before {content:'\e903';}
+.imp-exp-icon-grip-dots-vertical-solid:before {content:'\e904';}
+.imp-exp-icon-pencil:before {content:'\e907';}
+.imp-exp-icon-xmark:before {content:'\e908';}
+.imp-exp-icon-check:before {content:'\e909';}
+
+.import-export .message {border:1px solid #77ab13;}
+
+/* import-export buttons */
+.imp-exp-btn {box-sizing:border-box; display:inline-block; margin:0; padding:.344rem .75rem; 
+    font-family:inherit; font-size:12px; font-weight:700; line-height:16px; color:#212529;
+    border:1px solid transparent; border-radius:.25rem; background-color:transparent;
+    text-align:center; vertical-align:middle; text-decoration:none; text-transform:none; 
+    cursor:pointer; -webkit-user-select:none; -moz-user-select:none; user-select:none; 
+    transition:color .15s ease-in-out, background-color .15s ease-in-out, border-color .15s ease-in-out, box-shadow .15s ease-in-out; -webkit-appearance:button;}
+.imp-exp-btn.imp-exp-icon-only {padding:.25rem 0.5rem}
+.imp-exp-btn:disabled {opacity:.4; cursor:default;}
+.imp-exp-btn-default {color:#6c6c6c; border-color:#d8d8d8; background-color:#d8d8d8;}
+.imp-exp-btn-default:hover:not(disabled) {color:#fff; background:#fa8004; border:1px solid #fa6704;}
+.imp-exp-btn .imp-exp-icon-plus {font-size:10px;}
+.imp-exp-btn .imp-exp-icon-minus {font-size:10px;}
+
+
+/* field map table */
+.table-responsive {overflow-x:auto; -webkit-overflow-scrolling:touch;}
+
+.field-map-header, .field-map-item {
+    background-color:#fff; border:1px solid #ebebeb; border-bottom-width:0;}
+.field-map-header .panel {padding:10px 8px; border-right:1px solid #ebebeb; 
+    color:#585858; font-weight:700; vertical-align:top;}
+.field-map-item .panel {padding:6px 8px; border-right:1px solid #ebebeb; vertical-align:top;}
+
+.field-map-item .panel-left, .field-map-item .panel-destination {padding-top:13px;}
+.field-map-item .panel-right {padding-top:10px;}
+.field-map-item .panel-left {text-align:center;}
+.field-map-item .panel-destination {padding-right:4rem; font-weight:700;}
+.field-map-item .panel-source {padding-right:4rem;}
+

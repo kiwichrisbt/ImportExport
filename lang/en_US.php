@@ -10,6 +10,9 @@
 
 
 #C
+$lang['cancel'] = 'Cancel';
+$lang['change_type'] = 'Change type';
+$lang['clear_selection'] = 'Clear selection';
     $lang['check'] = 'Check';
     $lang['news_field_exists'] = 'A News custom field with the name %s already exists';
     $lang['clear_news_categories'] = 'Delete all News categories';
@@ -33,9 +36,20 @@
     $lang['error_invalidvalue'] = 'The value %s is invalid for a %s';
     $lang['error_invalid_postmeta'] = 'Invalid data entered for postmeta';
     $lang['error_invalidurl'] = 'Invalid URL <em>(maybe it is already used, or there are invalid characters)</em>';
+$lang['error_invalidfiletype'] = 'Upload failed. Allowed file types: %s';
+$lang['error_upload'] = 'There was an error uploading the file %s.';
+$lang['error_no_import_items'] = 'No items found to import';
+// error_multiple_categories
+$lang['error_multiple_categories'] = '%s items had multiple categories set, but LISE category only enabled for single categories.';
+
+
+
 
 #F
-$lang['friendlyname'] = 'ImportExport';
+$lang['field_map_destination_fields'] = 'destination fields';
+$lang['field_map_source_fields'] = 'source fields';
+$lang['friendlyname'] = 'Import Export';
+
 
 #G
 
@@ -78,9 +92,28 @@ $lang['friendlyname'] = 'ImportExport';
 
 
 #L
+$lang['label_select_source'] = '--- select source field ---';
+$lang['label_wp_xml_to_LISE_lise_instance'] = 'Select LISE Instance to import to';
+$lang['label_wp_xml_to_LISE_submit_continue'] = 'Continue';
+$lang['label_wp_xml_to_LISE_submit_import'] = 'Import';
+$lang['label_wp_xml_to_LISE_wp_xml_file'] = 'Select WordPress&trade; XML file';
+$lang['label_wp_xml_to_LISE_lise_to_wp_field_map'] = 'Select LISE fields to map WordPress&trade; content to';
+$lang['label_wp_xml_to_LISE_limit_source_selection'] = 'Allow source fields to be selected only once';
+$lang['label_wp_xml_to_LISE_delete_all_items_before_import'] = 'Delete all LISE items before import - warning: this cannot be undone';
+$lang['label_wp_xml_to_LISE_source_base_urls'] = 'Source base URL(s) - comma separated list of urls to be stripped from image paths and relative CMSMS urls';
+$lang['label_wp_xml_to_LISE_auto_create_categories'] = 'Auto create categories from imported posts';
+// label_wp_xml_to_LISE_default_owner 
+$lang['label_wp_xml_to_LISE_default_owner'] = 'Select Default Owner - if WP post author not a CMSMS Backend User this default author will be used. Note: use "_" instead of spaces or "-" in the username.';
+$lang['label_wp_xml_to_LISE_submit_completed'] = 'Import Completed';
     $lang['legend_postmeta_mapping'] = 'Map Wordpress&trade; Meta Data';
 
+
 #M
+$lang['message_file_uploaded'] = 'File %s is successfully uploaded.';
+$lang['message_lise_deleted_all_items'] = 'All %s items deleted from LISE instance: %s';
+$lang['message_imported_items'] = 'Imported %s items into %s';
+$lang['message_new_categories_added'] = '%s New categories added: %s';
+
 $lang['module_description'] = 'This module, adds the ability to Import & Export content.';
     $lang['msg_wpfound'] = 'WordPress&trade; installation found';
 
@@ -93,6 +126,9 @@ $lang['module_description'] = 'This module, adds the ability to Import & Export 
 #P
 $lang['postinstall'] = 'The ImportExport module has been installed';
 $lang['postuninstall'] = 'The ImportExport module has been uninstalled';
+$lang['preview_wp_xml'] = 'Selected WordPress&trade; XML file: "%s" with %d items and %d authors';
+$lang['preview_lise_instance'] = 'Selected LISE Instance: "%s" with %d items';
+
 
 #Q
 
@@ -102,11 +138,19 @@ $lang['postuninstall'] = 'The ImportExport module has been uninstalled';
     $lang['root_url'] = 'Root URL';
 
 #S
+$lang['selected_import_export'] = 'Selected Import Export Type';
+$lang['step_1_select'] = 'Step 1 Select'; 
+$lang['step_2_config'] = 'Step 2 Config'; 
+$lang['step_3_complete'] = 'Step 3 Complete'; 
+
 
 
 #T
     $lang['test'] = 'Test';
     $lang['title_import'] = 'Import from WordPress&trade;';
+$lang['type_select'] = '--- select Import Export type ---';
+$lang['type_wp_xml_to_LISE'] = 'Wordpress xml to LISE';
+
 
 #U
     $lang['user_count'] = 'User Count';
