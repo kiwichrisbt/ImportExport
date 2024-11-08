@@ -78,7 +78,7 @@ class lise_interface
         $this->messageManager = MessageManager::getInstance();
         $this->valid_date_min = strtotime('2000-01-01');
         $this->valid_date_max = strtotime('+1 year');
-        
+
         if (!empty($instance_name)) {   // optional - if instance not yet selected
             $this->instance_name = $instance_name;
             $this->lise_instance = $this->lise_mod->GetModuleInstance($instance_name);
@@ -343,9 +343,10 @@ class lise_interface
     public function set_create_time($lise_item, $create_time)
     {
         $db = cmsms()->GetDb();
-        $query = 'UPDATE '.CMS_DB_PREFIX.'module_'.strtolower($this->instance_name).'_item
-				  SET create_time = ?
-				  WHERE item_id = ?';
+        // reformat the date
+        $create_time = date('Y-m-d H:i:s', strtotime($create_time));
+        $query = 'UPDATE '.CMS_DB_PREFIX.'module_'.strtolower($this->instance_name).'_item '.
+				  'SET create_time = ? WHERE item_id = ?';
         $result = $db->Execute($query, [$create_time, $lise_item->item_id]);
     }
 

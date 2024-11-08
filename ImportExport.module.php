@@ -28,7 +28,7 @@
 
 class ImportExport extends CMSModule
 {
-    const MODULE_VERSION = '1.0beta3';
+    const MODULE_VERSION = '1.0beta4';
 
     const IMPORT_EXPORT_TYPES = [
         'wp_xml_to_LISE',
