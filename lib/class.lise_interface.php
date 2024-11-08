@@ -35,6 +35,7 @@ class lise_interface
         'title' => 'string',
         'url' => 'url',
         'active' => 'integer',
+        'create_time' => 'datetime',
         'start_time' => 'datetime',
         'end_time' => 'datetime',
         'owner' => 'owner',
@@ -64,6 +65,7 @@ class lise_interface
     public $new_categories_added = [];  // list of new categories added
     public $default_owner_id = null;  // default owner id for LISE items
     public $multi_categories_truncated = 0;  // count of items with multiple categories truncated
+    public $import_count = 0;  // count of items imported
 
 
 
@@ -74,6 +76,9 @@ class lise_interface
     {	
         $this->lise_mod = \cms_utils::get_module('LISE');
         $this->messageManager = MessageManager::getInstance();
+        $this->valid_date_min = strtotime('2000-01-01');
+        $this->valid_date_max = strtotime('+1 year');
+        
         if (!empty($instance_name)) {   // optional - if instance not yet selected
             $this->instance_name = $instance_name;
             $this->lise_instance = $this->lise_mod->GetModuleInstance($instance_name);
@@ -82,9 +87,8 @@ class lise_interface
             $lise_items = $this->lise_instance->GetItemQuery($params);
             $result     = $lise_items->Execute(true);
             $this->record_count = $result->RecordCount();
+            $this->get_category_list();
         }
-        $this->valid_date_min = strtotime('2000-01-01');
-        $this->valid_date_max = strtotime('+1 year');
 
     }
 
@@ -98,7 +102,7 @@ class lise_interface
     {
         $imp_exp_mod = \cms_utils::get_module('ImportExport');
         $instances = [];
-        $instance_names = ['' => $imp_exp_mod->Lang('lise_select')];
+        $instance_names = ['' => $imp_exp_mod->Lang('label_wp_xml_to_LISE_lise_instance')];
         if ($this->lise_mod) {
             $instances = $this->lise_mod->ListModules();
         }
@@ -148,13 +152,20 @@ class lise_interface
         foreach ($items as $item) {
             $lise_item = $this->lise_instance->InitiateItem();
 
-            foreach ($field_map as $mapped_field) {                
-                $lise_item->{$mapped_field->dest_field} = $this->filter_data($mapped_field->dest_data_type, $item[$mapped_field->source_field]);
+            foreach ($field_map as $mapped_field) {    
+                if ($mapped_field->dest_field!='create_time') {  // we have to set it manually later
+                    $lise_item->{$mapped_field->dest_field} = $this->filter_data($mapped_field->dest_data_type, $item[$mapped_field->source_field]);
+                }
             }
             if ($auto_active) $lise_item->active = '1';
 
             try {
                 $this->lise_instance->SaveItem($lise_item);
+                // check if create_time is mapped & set it manually
+                if (!empty($field_map['create_time']->source_field) && !empty($item[$field_map['create_time']->source_field])) {
+                    $create_time = $item[$field_map['create_time']->source_field];
+                    $this->set_create_time($lise_item, $create_time);
+                }
                 $import_count++;  // if no error generated
 
             } catch (\Exception $e) {
@@ -162,10 +173,12 @@ class lise_interface
             }
         }
 
-        $this->messageManager->addLangMessage( 'message_imported_items', $import_count, $this->instance_name );
-        if (!empty($this->new_categories_added)) {
-            $this->messageManager->addLangMessage( 'message_new_categories_added', count($this->new_categories_added) ,implode(', ', $this->new_categories_added) );
-        }
+        // $this->messageManager->addLangMessage( 'message_imported_items', $import_count, $this->instance_name );
+        $this->import_count += $import_count;
+        $this->record_count += $import_count;
+        // if (!empty($this->new_categories_added)) {
+        //     $this->messageManager->addLangMessage( 'message_new_categories_added', count($this->new_categories_added) ,implode(', ', $this->new_categories_added) );
+        // }
         if ($this->multi_categories_truncated) {
             $this->messageManager->addLangError( 'error_multiple_categories', (string)$this->multi_categories_truncated);
         }
@@ -190,6 +203,7 @@ class lise_interface
         $imp_exp_mod = \cms_utils::get_module('ImportExport');
         $this->messageManager->addLangMessage( 'message_lise_deleted_all_items',
             $record_count, $this->instance_name );
+        $this->record_count = 0;
     }
 
 
@@ -318,8 +332,21 @@ class lise_interface
 		$category->active       = '1';
 		
 		$this->lise_instance->SaveCategory($category);
-        $this->get_category_list();
         $this->new_categories_added[] = $category_alias;
+    }
+
+
+    /**
+    *  set lise items create_time - LISE sets it to NOW() on create, and NOT on update
+    *  so we have to set it directly
+    */
+    public function set_create_time($lise_item, $create_time)
+    {
+        $db = cmsms()->GetDb();
+        $query = 'UPDATE '.CMS_DB_PREFIX.'module_'.strtolower($this->instance_name).'_item
+				  SET create_time = ?
+				  WHERE item_id = ?';
+        $result = $db->Execute($query, [$create_time, $lise_item->item_id]);
     }
 
 

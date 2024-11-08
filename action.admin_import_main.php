@@ -11,7 +11,7 @@
 */
 
 if ( !defined('CMS_VERSION') ) exit;
-if ( !$this->IsSuperuser() ) return;
+if ( !$this->VisibleToAdminUser() ) return;
 
 $smarty->assign('admin_import_url',$this->create_url($id,'admin_import',$returnid));
 echo $this->ProcessTemplate('admin_import_main.tpl');

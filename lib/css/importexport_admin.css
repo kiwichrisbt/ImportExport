@@ -62,3 +62,46 @@
 .field-map-item .panel-destination {padding-right:4rem; font-weight:700;}
 .field-map-item .panel-source {padding-right:4rem;}
 
+
+.import-export .progress {
+    display: flex;
+    height: 2rem;
+    overflow: hidden;
+    font-size: .75rem;
+    background-color: #e9ecef;
+    border-radius: .25rem;
+}
+
+.import-export .progress-bar {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    height:100%;
+    overflow: hidden;
+    color: #fff;
+    text-align: center;
+    white-space: nowrap;
+    background-color: #fa8004 !important;
+    background-image: none !important;
+    transition: width .6s ease;
+}
+.import-export .progress-bar.done {background-color: #77ab13 !important;}
+.import-export .step-bar {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    padding:.5rem;
+    overflow: hidden;
+    color: #fff;
+    text-align: left;
+    white-space: nowrap;
+    background-color: #acb3bf;
+    transition: width .6s ease;
+    border-left: 1px solid #969da5;
+}
+.import-export .step-bar:first-child {border-left:0;}
+.import-export .step-bar.done {background-color:#656a70;}
+.import-export .step-bar.active {background-color:#656a70;}
+
+.import-export .bg-secondary {background-color: #6c757d !important;}
+.import-export .bg-warning {background-color: rgb(250 128 4) !important;}

@@ -25,12 +25,17 @@ class impexp_wp_xml_to_LISE extends ImportExportBase
         $this->steps = [
             '1' => 'step_1_select',
             '2' => 'step_2_config',
-            '3' => 'step_3_complete',
+            '3' => 'step_3_import',
+            '4' => 'step_4_completed',
         ]; 
         $this->default_field_mappings = [   // source field => destination field (WP > LISE)
             'title' => 'title',
-            'link'  => 'url'
+            'link'  => 'url',
+            'wp_status' => 'active',
+            'pubDate' => 'create_time',
+            'creator' => 'owner',
         ];
+        $this->batch_size = 10;
     }
 
     
@@ -129,7 +134,9 @@ class impexp_wp_xml_to_LISE extends ImportExportBase
                 // preview wp_xml_file
                 $filename = $this->config_options['wp_xml_file']->value;
                 $this->wp_xml = new wp_xml_interface( $filename );
-                $this->messageManager->addMessage( $this->mod->Lang('preview_wp_xml', $this->wp_xml->wp_title, $this->wp_xml->wp_item_count, $this->wp_xml->wp_author_count) );
+                $this->messageManager->addLangMessage( 'preview_wp_xml', $this->wp_xml->wp_title, 
+                    $this->wp_xml->wp_post_count, $this->wp_xml->wp_attachment_count, 
+                    $this->wp_xml->wp_author_count );
                 // set souce details
                 $this->source_name = $this->wp_xml->wp_title;
                 $this->source_fields = $this->wp_xml->fields;
@@ -149,23 +156,22 @@ class impexp_wp_xml_to_LISE extends ImportExportBase
 
                 break;
 
-            case '3': // 3rd page - complete import
+            case '3': // 3rd page - import 
                 $this->create_config_options(); // get the config options
                 $this->load_config();   // previously saved values
                 $this->lise_instance = new lise_interface( $this->config_options['lise_instance']->value );
                 $this->field_map = $this->lise_instance->generate_field_map(); // get the field map
                 $this->get_field_map_values();
                 $this->get_config_values($params);  // get the values from the form
-                $this->save_config();
+                $this->save_config();   // save the config values & field map
+                $this->lise_instance->default_owner_id = $this->config_options['default_owner']->value;
                 if ($this->config_options['auto_create_categories']->value) {
                     $this->lise_instance->get_category_list();
                 }
-
                 if ( !empty( $this->messageManager->getErrors() ) ) {
                     $this->step = 1;    // go back to the config page - with errors
                     break;
                 }
-
 // maybe validate the field map - e.g. for required fields
 
                 // delete all items before import - config option
@@ -173,42 +179,107 @@ class impexp_wp_xml_to_LISE extends ImportExportBase
                     $this->lise_instance->delete_all_items();
                 }
 
+                // start the ajax import/export to use batches of items
+                // $this->ajax_process();
+
                 // import the data
-                $this->import_wp_xml_to_LISE();
+
+                $this->set_progress(0); // initiate the progress bar & ajax import
+                $this->ajax_key = md5(uniqid(rand(), true));
+                $this->set_ajax_processing_details($this->type, $this->ajax_key);
                 break;
 
-            case '4': // 3rd page - complete import
-                $this->mod->Redirect($id, 'defaultadmin', $returnid);
+            case '4': // 3rd page - import completed
+                $this->mod->Redirect('', 'defaultadmin', '');
                 break;
         }
     }
 
 
+    /**
+     *  for ajax triggering of processing, after template has been displayed
+     */
+    public function ajax_process()
+    {
+        $this->reset_ajax_processing_details(); // now we are here - reset the access details
+
+        $this->create_config_options(); // get the config options
+        $this->load_config();   // load the config values & field map
+        $this->lise_instance = new lise_interface( $this->config_options['lise_instance']->value );
+        $this->field_map = $this->lise_instance->generate_field_map(); // setup the field map
+        $this->get_field_map_values();
+
+        $this->lise_instance->default_owner_id = $this->config_options['default_owner']->value;
+// do we need to get the category list again?
+// if ($this->config_options['auto_create_categories']->value) {
+//     $this->lise_instance->get_category_list();
+// }
+
+        $this->import_wp_xml_to_LISE();
+    }
+
 
     public function import_wp_xml_to_LISE()
     {
-// $this->messageManager->addMessage( $this->mod->Lang('import_started') );
         // get the wp xml data again
         $filename = $this->config_options['wp_xml_file']->value;
         $this->wp_xml = new wp_xml_interface( $filename );
-
-        $items = $this->wp_xml->get_items(1000);   // get the first 10 items
+        $source_base_urls = $this->config_options['source_base_urls']->value;
+        $progress = 0;
+        $progress_total = $this->wp_xml->wp_post_count + $this->wp_xml->wp_attachment_count;
 
         try {
-            if (empty($items)) {
-                $this->messageManager->addError( $this->mod->Lang('error_no_import_items') );
-                return;
+            // get all posts in the wp_xml file
+            while ( !$this->wp_xml->at_xml_end ) {
+                $items = $this->wp_xml->get_items('post', $this->batch_size);
+                $this->lise_instance->import_items($items, $this->field_map, $source_base_urls);
+                // $this->lise_instance->import_count
+                $progress = ($this->lise_instance->import_count + 0) / $progress_total;
+                $this->set_progress( $progress );
+// sleep(10);
             }
-            $source_base_urls = $this->config_options['source_base_urls']->value;
-            $this->lise_instance->default_owner_id = $this->config_options['default_owner']->value;
-            $this->lise_instance->import_items($items, $this->field_map, $source_base_urls);
+
+            // get all attachments in the wp_xml file
+
+            // !!!!!!!!
+
+
 
         } catch (\exception $e) {
             $this->messageManager->addError('Import error: '.$e->getMessage() );
 
         }
 
+        if ($this->lise_instance->import_count==0) {
+            $this->messageManager->addLangError( 'error_no_import_items' );
+        } else {
+            $this->messageManager->addLangMessage( 'message_imported_items', $this->lise_instance->import_count, $this->lise_instance->instance_name );
+        }
+        $new_categories_added = $this->lise_instance->new_categories_added;
+        if (!empty($new_categories_added)) {
+            $this->messageManager->addLangMessage( 'message_new_categories_added', count($new_categories_added) ,implode(', ', $new_categories_added) );
+        }
+
+
     }
+
+
+    // /**
+    //  *  start the ajax import/export
+    //  */
+    // public function ajax_process()
+    // {
+    //     $this->create_config_options(); // get the config options
+    //     $this->load_config();   // previously saved values
+    //     $this->get_config_values($_POST);  // get the values from the form
+    //     $this->save_config();
+    //     $this->lise_instance = new lise_interface( $this->config_options['lise_instance']->value );
+    //     $this->field_map = $this->lise_instance->generate_field_map(); // get the field map
+    //     $this->get_field_map_values();
+
+    //     $this->import_wp_xml_to_LISE();
+    // }
+
 
 
 }

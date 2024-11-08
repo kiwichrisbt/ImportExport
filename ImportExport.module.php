@@ -28,7 +28,7 @@
 
 class ImportExport extends CMSModule
 {
-    const MODULE_VERSION = '1.0beta1';
+    const MODULE_VERSION = '1.0beta3';
 
     const IMPORT_EXPORT_TYPES = [
         'wp_xml_to_LISE',
@@ -36,6 +36,8 @@ class ImportExport extends CMSModule
     ];
     const CLASS_PREFIX = 'ImportExport\impexp_';
     const LANG_PROMPT_SUFFIX = '_prompt';
+    const PROGRESS_PREFERENCE = 'ImportExport_progress';
+    const AJAX_PROCESSING_DETAILS = 'ImportExport_ajax_processing_details';
 
     public function GetName() { return 'ImportExport'; }
     public function GetFriendlyName() { return $this->Lang('friendlyname'); }
@@ -90,6 +92,19 @@ class ImportExport extends CMSModule
         
         return $user_list;
     }
+
+
+    /**
+    *   outputs a json error message when ajax call used, then die
+    *   @param string error message to be returned in json format
+    */
+    function OutputAjaxError($error)
+    {
+        http_response_code(200);    // signal error by returning error value
+        die( json_encode( ['error' => $error]) ); 
+    }
+
+
 
 }
 

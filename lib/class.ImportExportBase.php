@@ -16,6 +16,8 @@ abstract class ImportExportBase
     const INPUT_TYPES_NOT_SAVED = ['submit', 'cancel+submit'];  // 'file_xml',
     const FIELDNAME_PREFIX = 'm1_';     // prefix for the form fieldname - as it's an admin form
     const CACHE_PREFIX = 'ImportExport_';    // prefix for the cache key
+    const PROGRESS_PREFERENCE = 'ImportExport_progress'; // preference key for progress - same as module class
+    const AJAX_PROCESSING_DETAILS = 'ImportExport_ajax_processing_details'; // preference key for ajax processing details - same as module class
 
     public $mod;
     public $type = '';      // type of import/export
@@ -35,7 +37,10 @@ abstract class ImportExportBase
     public $field_map = [];                 // array of destination field => field_map_item's 
     public $default_field_mappings = [];    // source field => destination field
     public $field_map_values = [];          // array of field_map_item values
-
+    public $batch_size = 10;                // default - can be updated by the child class
+    public $progress = null;                   // progress bar percentage - also saved in preferences
+    // public $post_template_processing = false;  // set to true if processing required after template display
+    public $ajax_key = null;                // key for ajax processing - unset after use
     public $messageManager = null;          // MessageManager instance (singleton)
     public $messages = [];                  // array of messages for the import/export
     public $errors = [];                    // array of errors for the import/export
@@ -46,6 +51,7 @@ abstract class ImportExportBase
     {
         $this->mod = \cms_utils::get_module('ImportExport');
         $this->messageManager = MessageManager::getInstance();
+        $this->set_progress($this->progress);     // should be null until import starts
     }
 
 
@@ -61,6 +67,13 @@ abstract class ImportExportBase
      *      - with calls to ...
      */
     abstract public function process($params=[]);
+
+
+    /**
+     *  This function can optionally be implemented by the child class 
+     *      - e.g. for ajax triggering of processing
+     */
+    public function ajax_process() {}
 
 
     /**
@@ -237,6 +250,59 @@ abstract class ImportExportBase
     }
 
 
+    /**
+     *  set the progress bar percentage
+     */
+    public function set_progress($progress)
+    {
+        $this->progress = $progress;
+        $this->mod->SetPreference(self::PROGRESS_PREFERENCE, $progress);
+    }
+
+
+    /**
+     *  get the progress bar percentage
+     *  @return string $progress - the progress percentage
+     */ 
+    public function get_progress()
+    {
+        $this->progress = $this->mod->GetPreference(self::PROGRESS_PREFERENCE);
+        return $this->progress;
+    }
+
+
+    /**
+     *  save the details for the ajax processing
+     *  @return array of saved details
+     */
+    public function get_ajax_processing_details()
+    {
+        $details = json_decode( $this->mod->GetPreference(self::AJAX_PROCESSING_DETAILS) );
+        return $details;
+    }
+
+
+    /**
+     *  save the details for the ajax processing
+     *  @param string $type - the type of import/export
+     */
+    public function set_ajax_processing_details($type, $key)
+    {
+        $details = [
+            'type' => $type,
+            'key' => $key
+        ];
+        $this->mod->SetPreference(self::AJAX_PROCESSING_DETAILS, json_encode($details));
+    }
+
+
+    /**
+     *  reset the details for the ajax processing
+     */
+    public function reset_ajax_processing_details()
+    {
+        $this->mod->SetPreference(self::AJAX_PROCESSING_DETAILS, null);
+    }
 
 
     // /**

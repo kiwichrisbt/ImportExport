@@ -11,7 +11,7 @@
 */
 
 if ( !defined('CMS_VERSION') ) exit;
-if ( !$this->IsSuperuser() ) return;
+if ( !$this->VisibleToAdminUser() ) return;
 
 function progress_reset()
 {

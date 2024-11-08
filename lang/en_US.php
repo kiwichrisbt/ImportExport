@@ -58,6 +58,7 @@ $lang['friendlyname'] = 'Import Export';
 
 
 #I
+$lang['import_progress'] = 'Import Progress';
     $lang['image_count'] = 'Image Count';
     $lang['image_dest'] = 'Image Destination';
     $lang['image_errors'] = 'Image Errors';
@@ -126,7 +127,7 @@ $lang['module_description'] = 'This module, adds the ability to Import & Export 
 #P
 $lang['postinstall'] = 'The ImportExport module has been installed';
 $lang['postuninstall'] = 'The ImportExport module has been uninstalled';
-$lang['preview_wp_xml'] = 'Selected WordPress&trade; XML file: "%s" with %d items and %d authors';
+$lang['preview_wp_xml'] = 'Selected WordPress&trade; XML file: "%s" with %d items, %d attachments and %d authors';
 $lang['preview_lise_instance'] = 'Selected LISE Instance: "%s" with %d items';
 
 
@@ -139,9 +140,10 @@ $lang['preview_lise_instance'] = 'Selected LISE Instance: "%s" with %d items';
 
 #S
 $lang['selected_import_export'] = 'Selected Import Export Type';
-$lang['step_1_select'] = 'Step 1 Select'; 
-$lang['step_2_config'] = 'Step 2 Config'; 
-$lang['step_3_complete'] = 'Step 3 Complete'; 
+$lang['step_1_select'] = 'Select'; 
+$lang['step_2_config'] = 'Configuration'; 
+$lang['step_3_import'] = 'Import'; 
+$lang['step_4_completed'] = 'Completed'; 
 
 
 

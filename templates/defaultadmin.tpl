@@ -141,18 +141,37 @@
         </p>
     </div>
 
-    {* Messages & Errors *}
-    {$messages=$import_export->messageManager->getMessages()}
-    {if !empty($messages)}
-        <div class="pagemcontainer message success no-slide">
+    {* Step Headings *}
+    {if isset($import_export->steps)}
+    <div class="steps pageoverflow m_bottom_25">
+        <div class="step-headings progress">
+        {foreach $import_export->steps as $step_number => $heading}
+            <div class="step-bar {if $import_export->step==$step_number}active{elseif $import_export->step>$step_number}done{/if}" role="progressbar" style="width: 25%" aria-valuenow="25" aria-valuemin="0" aria-valuemax="100">{$step_number}. {$mod->Lang($heading)}</div>
+        {/foreach}
+        </div>
+    </div>
+    {/if}
+    {* Progress Bar (optional) *}
+    {if isset($import_export->progress)}
+    <div class="steps pageoverflow m_bottom_25">
+        <p class="pageinput">{$mod->Lang('import_progress')}:</p>
+        <div class="progress">
+            <div class="progress-bar bg-warning" role="progressbar" style="width: {$import_export->progress}%" aria-valuenow="{$import_export->progress}" aria-valuemin="0" aria-valuemax="100" data-url="{cms_action_url action=admin_ajax_data do=get_progress}" data-activate-url="{cms_action_url action=admin_ajax_data do=start_ajax_processing key=$import_export->ajax_key}">{$import_export->progress}%</div>
+        </div>
+    </div>
+    {/if}
+
+
+    {* Messages & Errors - hide if empty*}
+    {if isset($import_export->messageManager)}
+        {$messages=$import_export->messageManager->getMessages()}
+        <div class="pagemcontainer message success no-slide m_bottom_25 {if empty($messages)}hidden{/if}">
         {foreach $messages as $message}
             <p class="pagemessage">{$message}</p>
         {/foreach}
         </div>
-    {/if}
-    {$errors=$import_export->messageManager->getErrors()}
-    {if !empty($errors)}
-        <div class="pageerrorcontainer error no-slide">
+        {$errors=$import_export->messageManager->getErrors()}
+        <div class="pageerrorcontainer error no-slide m_bottom_25 {if empty($errors)}hidden{/if}">
         {foreach $errors as $error}
             <p class="pageerror">{$error}</p>
         {/foreach}

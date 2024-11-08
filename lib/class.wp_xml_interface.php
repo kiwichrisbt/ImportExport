@@ -22,6 +22,7 @@ class wp_xml_interface
         'wp_post_date' => 'wp:post_date',
         'wp_post_name' => 'wp:post_name',
         'wp_status' => 'wp:status',
+        'wp_post_parent' => 'wp:post_parent',
         'wp_post_type' => 'wp:post_type',
         'category' => 'category',
         'post_tag' => 'post_tag',
@@ -32,10 +33,12 @@ class wp_xml_interface
 
     public $wp_title = '';
     public $wp_site_url = '';
-    public $wp_item_count = 0;
+    public $wp_item_count = 0;  // includes posts and attachments
+    public $wp_post_count = 0;
+    public $wp_attachment_count = 0;
     public $wp_author_count = 0;
     public $current_item = 0;
-    public $at_end = false;
+    public $at_xml_end = false;
     public $fields = [];  // array of fields source for the field_map
     public $messageManager = null;
 
@@ -60,6 +63,7 @@ class wp_xml_interface
         $this->wp_title = $this->wp_xml->channel->title;
         $this->wp_site_url = $this->wp_xml->channel->link;
         // $items = $this->wp_xml->channel->item;
+        $this->get_item_counts();
         $this->wp_item_count = $this->wp_xml->channel->item->count();
         $authors = $this->wp_xml->channel->xpath('wp:author');
         $this->wp_author_count = count($authors);
@@ -81,10 +85,11 @@ class wp_xml_interface
 
     /**
      *  get a specific item from the WP xml
+        *  @param string $item_type   'post' (default) or 'attachment'
         *  @param integer $item_number  Zero-based index of the item to return
         *  @return array of item fields
      */
-    public function get_item($item_number)
+    public function get_item($item_type='post', $item_number)
     {
         $item = []; // for a nice sanitised array of fields
         if ($item_number >= $this->wp_item_count) {
@@ -92,6 +97,10 @@ class wp_xml_interface
             return [];
         }
         $xml_item = $this->wp_xml->channel->item[$item_number];
+
+        // check if this is the correct item type, if not return empty array
+        $wp_post_type = $xml_item->xpath('wp:post_type')[0];
+        if ($item_type!=$wp_post_type) return [];
         
         foreach (self::WP_ITEM_DATA as $name => $xml_tag) {
             // use xpath to retrieve all data, as that also gets CDATA e.g. 'content:encoded'
@@ -136,25 +145,45 @@ class wp_xml_interface
 
 
     /**
-     *  get a batch of items from the WP xml
+     *  get a batch of X items from the WP xml, either posts or attachments, ignore other type
+     *  @param integer $item_type   'post' (default) or 'attachment'
      *  @param integer $batch_size  Number of items to return
      *  @param integer $start       Optional. Start at this item, or continue from current position
      *  @return array of items
      */
-    public function get_items($batch_size=50, $start=null)
+    public function get_items( $item_type='post', $batch_size=50, $start=null)
     {
+        $item_type = $item_type=='attachment' ? 'attachment' : 'post';
         $items = [];
-        $start = $start ? $start : $this->current_item; // zero-based index
-        $end = min($start + $batch_size, $this->wp_item_count); // zero-based index
-        for ($i = $start; $i < $end ; $i++) {
-            $items[] = $this->get_item($i);
-        }
-        $this->current_item = $i;
-        if ($i >= $this->wp_item_count) $this->at_end = true;
+        $this->current_item = $start ? $start : $this->current_item;    // zero-based index
         
+        while (count($items) < $batch_size && !$this->at_xml_end) {
+            $tmp_item = $this->get_item( $item_type, $this->current_item);
+            if (!empty($tmp_item)) $items[] = $tmp_item;
+            $this->current_item++;
+            if ( $this->current_item >= $this->wp_item_count ) $this->at_xml_end = true;
+        }
+
         return $items;
     }
 
+
+    /**
+     *  get the counts of items in the WP xml - both posts and attachments
+     */
+    public function get_item_counts()
+    {
+        $this->wp_post_count = 0;
+        $this->wp_attachment_count = 0;
+        foreach ($this->wp_xml->channel->item as $item) {
+            $post_type = $item->xpath('wp:post_type');
+            if ($post_type[0] == 'attachment') {
+                $this->wp_attachment_count++;
+            } else {
+                $this->wp_post_count++;
+            }
+        }
+    }
 
 
 
