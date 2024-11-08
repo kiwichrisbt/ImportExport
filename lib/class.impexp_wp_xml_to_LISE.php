@@ -126,6 +126,9 @@ class impexp_wp_xml_to_LISE extends ImportExportBase
                 $this->load_config();   // previously saved values
                 $this->get_config_values($params);  // get the values from the form
                 $this->save_config();
+                if ( empty($this->config_options['lise_instance']->value) ) {
+                    $this->messageManager->addError('No LISE instance selected');
+                }
                 if ( !empty( $this->messageManager->getErrors() ) ) {
                     $this->step = 1;    // go back to the config page - with errors
                     break;

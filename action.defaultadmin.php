@@ -81,8 +81,9 @@ if ( isset($import_export) ) {
 
 $tpl->display();
 
-$import_export->ajax_key = null; // clear any previous key - data already saved & given to smarty 
-
+if ( isset($import_export) ) {
+    $import_export->ajax_key = null; // clear any previous key - data already saved & given to smarty 
+}
 
 // $old_max_exec_time = ini_set('max_execution_time', 0);  // get the current max_execution_time
 
