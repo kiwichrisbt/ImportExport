@@ -1,6 +1,28 @@
-<p>This CMS Made Simple module, adds the ability to Import & Export content. Including importing Wordpress Posts or Pages to Content Manager or a LISE instance.</p>
+<style>.module-help-wrapper p {margin-bottom:1rem;}</style>
+<div class="module-help-wrapper">
 
+<p>This CMS Made Simple module, provides the functionality to Import & Export content. Including importing Wordpress Posts or Pages to Content Manager or a LISE instance.</p>
+<ul>
+    <li>Import Wordpress Posts to a LISE instance</li>
+    <li>Transfer News to a LISE Instance - in development</li>
+    <li>CGBlog to a LISE Instance - in development</li>
+    <li>Import Wordpress Pages to Content Manager - in development</li>
+    <li>...</li>
+    <li>... please contact me if you have other requirements for import/export of content. </li>
+</ul>
+<br>
 
+<h3>Requirements</h3>
+<p><b>fopen</b> - should be enabled</p>
+<p>If fopen is disabled a warning message will be displayed, and functionality will be limited. The module will not be able to import any remote images or attachments.</p>
+<ul>
+    <li>Import Wordpress Posts to a LISE instance</li>
+    <li>Transfer News to a LISE Instance - in development</li>
+    <li>Import Wordpress Pages to Content Manager - in development</li>
+    <li>...</li>
+    <li>... please contact me if you have other requirements for import/export of content. </li>
+</ul>
+<br>
 <p>THE REST NEEDS UPDATING...</p>
 
 In Wordpress go to Tools > Export, and choose either Posts or Pages. (Tip: maybe rename each file so you know which is posts and which is pages).
@@ -85,3 +107,5 @@ You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
 Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 Or read it <a href="http://www.gnu.org/licenses/licenses.html#GPL">online</a></p>
+
+</div>

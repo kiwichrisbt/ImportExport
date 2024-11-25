@@ -1,4 +1,8 @@
-{* wp_xml_to_LISE.tpl - v1.0 - 15Oct24 *}
+{* wp_xml_to_LISE.tpl - v1.0 - 15Oct24 
+
+    - ??? the following could probably be moved into defaultadmin.tpl - just with an option to override
+          using a child template ???
+*}
 {extends file="module_file_tpl:ImportExport;defaultadmin.tpl"} 
 
 {block name=step_content}
