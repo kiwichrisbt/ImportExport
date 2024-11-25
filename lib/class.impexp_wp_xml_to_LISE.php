@@ -13,6 +13,9 @@ class impexp_wp_xml_to_LISE extends ImportExportBase
 
     public $wp_xml = null;
     public $lise_instance = null;
+    public $posts_imported = 0;
+    public $attachments_imported = 0;
+    public $content_updated = 0;
 
 
 	public function __construct() 
@@ -35,6 +38,7 @@ class impexp_wp_xml_to_LISE extends ImportExportBase
             'pubDate' => 'create_time',
             'creator' => 'owner',
         ];
+        $this->content_update_types = [ 'TextArea' ];
         $this->batch_size = 10;
     }
 
@@ -61,6 +65,7 @@ class impexp_wp_xml_to_LISE extends ImportExportBase
             'label' => 'continue',
             'uiicon' => 'circle-check',
         ]);
+
 
         // used in step 2
         new config_option($this, 'lise_to_wp_field_map', [
@@ -93,19 +98,50 @@ class impexp_wp_xml_to_LISE extends ImportExportBase
             'required' => true,
             'options' => $this->mod->get_users(),
         ]);
-        new config_option($this, 'submit_import', [
-            'inputtype' => 'cancel+submit',
+        new config_option($this, 'uploads_location', [
+            'inputtype' => 'text',
+            'step' => 2,
+            'value' => '',
+        ]);
+        new config_option($this, 'cancel_import', [
+            'inputtype' => 'cancel',
             'step' => 2,
             'label' => 'import',
             'uiicon' => 'circle-check',
+            'inline' => 'inline_start',
+        ]);
+        new config_option($this, 'submit_import', [
+            'inputtype' => 'submit',
+            'step' => 2,
+            'label' => 'import',
+            'uiicon' => 'circle-check',
+            'inline' => 'inline_end',
         ]);
 
+
         // Step 3
+        new config_option($this, 'cancel_ajax', [
+            'inputtype' => 'cancel',
+            'step' => 3,
+            'label' => 'cancel_import',
+            'uiicon' => 'circle-check',
+            'inline' => 'inline_start',
+        ]);
+        new config_option($this, 'submit_retry_attachments', [
+            'inputtype' => 'submit',
+            'step' => 3,
+            'label' => 'retry_attachments',
+            'uiicon' => 'circle-check',
+            'inline' => 'inline',
+            'addclass' => 'hidden',
+        ]);
         new config_option($this, 'submit_completed', [
             'inputtype' => 'submit',
             'step' => 3,
             'label' => 'completed',
             'uiicon' => 'circle-check',
+            'inline' => 'inline_end',
+            'addclass' => 'hidden',
         ]);
 
     }
@@ -145,6 +181,10 @@ class impexp_wp_xml_to_LISE extends ImportExportBase
                 $this->source_fields = $this->wp_xml->fields;
                 $this->config_options['source_base_urls']->value = (string)$this->wp_xml->wp_site_url;
     // $this->source_samples = $this->wp_xml->get_sample_data();
+                // warning message re attachments field required
+                if ($this->wp_xml->wp_attachment_count>0 && !in_array('wp_attachments', $this->field_map_values)) {
+                    $this->messageManager->addMessage( 'Warning: "wp_attachments" field not mapped - attachments will not be imported' );
+                }
 
                 // get the LISE instance
                 $this->lise_instance = new lise_interface( $this->config_options['lise_instance']->value );
@@ -157,6 +197,9 @@ class impexp_wp_xml_to_LISE extends ImportExportBase
                 $this->get_field_map_values();
 
 
+                if (!$this->fopen_enabled() ) {
+                    $this->messageManager->addError( 'fopen is not enabled on this server. It will not be possible to import any remote images or attachments.' );
+                }
                 break;
 
             case '3': // 3rd page - import 
@@ -168,6 +211,7 @@ class impexp_wp_xml_to_LISE extends ImportExportBase
                 $this->get_config_values($params);  // get the values from the form
                 $this->save_config();   // save the config values & field map
                 $this->lise_instance->default_owner_id = $this->config_options['default_owner']->value;
+                $this->set_uploads_location(subdir: $this->config_options['uploads_location']->value );
                 if ($this->config_options['auto_create_categories']->value) {
                     $this->lise_instance->get_category_list();
                 }
@@ -182,14 +226,16 @@ class impexp_wp_xml_to_LISE extends ImportExportBase
                     $this->lise_instance->delete_all_items();
                 }
 
-                // start the ajax import/export to use batches of items
-                // $this->ajax_process();
-
-                // import the data
-
-                $this->set_progress(0); // initiate the progress bar & ajax import
-                $this->ajax_key = md5(uniqid(rand(), true));
-                $this->set_ajax_processing_details($this->type, $this->ajax_key);
+                // initiate the progress bar & ajax import
+                $this->ajax_status = 'started';
+                $this->ajax_position = 0;
+                $this->set_progress(0, 100); 
+                $extra_details = [
+                    'posts_imported' => $this->posts_imported,      // 0
+                    'attachments_imported' => $this->attachments_imported,    // 0
+                    'content_updated' => $this->content_updated,    // 0
+                ];
+                $this->set_ajax_processing_details($extra_details);
                 break;
 
             case '4': // 3rd page - import completed
@@ -201,10 +247,15 @@ class impexp_wp_xml_to_LISE extends ImportExportBase
 
     /**
      *  for ajax triggering of processing, after template has been displayed
+     *  @param object $saved_details - previously saved details
      */
-    public function ajax_process()
+    public function ajax_process($saved_details)
     {
         $this->reset_ajax_processing_details(); // now we are here - reset the access details
+        // put the saved extra details into the object
+        $this->posts_imported = $saved_details->posts_imported;
+        $this->attachments_imported = $saved_details->attachments_imported;
+        $this->content_updated = $saved_details->content_updated;
 
         $this->create_config_options(); // get the config options
         $this->load_config();   // load the config values & field map
@@ -213,12 +264,20 @@ class impexp_wp_xml_to_LISE extends ImportExportBase
         $this->get_field_map_values();
 
         $this->lise_instance->default_owner_id = $this->config_options['default_owner']->value;
-// do we need to get the category list again?
-// if ($this->config_options['auto_create_categories']->value) {
-//     $this->lise_instance->get_category_list();
-// }
+        $this->set_uploads_location(subdir: $this->config_options['uploads_location']->value );
+
+        if ($this->retry) $this->retry_ajax_process();
 
         $this->import_wp_xml_to_LISE();
+
+
+
+        $extra_details = [
+            'posts_imported' => $this->posts_imported,
+            'attachments_imported' => $this->attachments_imported,
+            'content_updated' => $this->content_updated,
+        ];
+        $this->set_ajax_processing_details($extra_details);
     }
 
 
@@ -228,60 +287,247 @@ class impexp_wp_xml_to_LISE extends ImportExportBase
         $filename = $this->config_options['wp_xml_file']->value;
         $this->wp_xml = new wp_xml_interface( $filename );
         $source_base_urls = $this->config_options['source_base_urls']->value;
-        $progress = 0;
-        $progress_total = $this->wp_xml->wp_post_count + $this->wp_xml->wp_attachment_count;
+        $item_count = 0;
 
+        // process the next batch_size number of items
         try {
-            // get all posts in the wp_xml file
-            while ( !$this->wp_xml->at_xml_end ) {
-                $items = $this->wp_xml->get_items('post', $this->batch_size);
-                $this->lise_instance->import_items($items, $this->field_map, $source_base_urls);
-                // $this->lise_instance->import_count
-                $progress = ($this->lise_instance->import_count + 0) / $progress_total;
-                $this->set_progress( $progress );
-// sleep(10);
+            switch ($this->ajax_status) {
+                case 'started':
+                    $this->ajax_status = 'post';
+                    $this->ajax_position = 0;
+                    // just continue to 'post' - no break
+
+                case 'post':
+                    if ( $this->ajax_position==0 ) {    // setup 'post import' feedback message
+                        $message = 'Importing <span class="feedback post-count">0</span> of '.
+                            $this->wp_xml->wp_post_count.' posts into '.$this->lise_instance->instance_name;
+                        $this->messageManager->addMessage( $message );
+                    }
+                    $items = $this->wp_xml->get_items($this->ajax_status, $this->batch_size, $this->ajax_position);
+                    $this->ajax_position = $this->wp_xml->current_item;
+                    if ( !empty($items)) {
+                        $item_count += $this->lise_instance->import_items($items, $this->field_map, $source_base_urls);
+                        $this->posts_imported += $item_count;
+                        $this->ajax_feedback['post-count'] = $this->posts_imported;
+                    }
+                    if ($this->wp_xml->at_xml_end) {    // switch to attachments and start at beginning
+                        // display messages after status completed
+                        $this->messageManager->addLangMessage( 'message_imported_items', $this->posts_imported, 
+                            $this->lise_instance->instance_name );
+                        $new_categories_added = $this->lise_instance->new_categories_added;
+                        if (!empty($new_categories_added)) {
+                            $this->messageManager->addLangMessage( 'message_new_categories_added', 
+                                count($new_categories_added), implode(', ', $new_categories_added) );
+                        }
+                        // move to next status
+                        $this->ajax_status = 'attachment';   
+                        $this->ajax_position = 0;
+                    }
+                    break;
+
+                case 'attachment':
+                    if ($this->wp_xml->wp_attachment_count==0) {
+                        $this->ajax_status = 'content_update';
+                        $this->ajax_position = 0;
+                        break;
+                    }
+                    if (!in_array('wp_attachments', $this->field_map_values)) {
+                        $this->messageManager->addError('No "wp_attachments" field mapped - '.
+                            $this->wp_xml->wp_attachment_count.' attachments will not be imported');
+                        $this->ajax_status = 'content_update';
+                        $this->ajax_position = 0;
+                        break;
+                    }
+
+                    if ( $this->ajax_position==0 ) {    // setup 'attachment import' feedback message
+                        $message = 'Importing <span class="feedback attachment-count">0</span> of '.
+                            $this->wp_xml->wp_attachment_count.' attachments into '.$this->lise_instance->instance_name.': <span class="feedback file-exists-count">0</span> exist locally'.
+                            ', <span class="feedback file-saved-count">0</span> remote files saved locally'.
+                            ', <span class="feedback file-error-count">0</span> file errors.';
+
+                        $this->messageManager->addMessage( $message );
+                    }
+                    // find the attachments field $this->field_map_values value = 'wp_attachments'
+                    $attachments_field = array_search('wp_attachments', $this->field_map_values);
+                    if ($attachments_field === false) break;  // no attachments field
+
+                    $items = $this->wp_xml->get_items($this->ajax_status, $this->batch_size, $this->ajax_position);
+                    $this->ajax_position = $this->wp_xml->current_item;
+                    if ( !$this->check_uploads_dest_dir('') ) {
+                        throw new \Exception('Uploads directory is not writable');
+                    }
+
+                    if ( !empty($items)) {
+                        // import the attachments - if not already done, also adds 'local_relative_url' to items
+                        $this->move_files_to_uploads_location($items);
+
+                        $this->lise_instance->import_attachments($items, $this->field_map, $source_base_urls, $attachments_field);
+                        $this->attachments_imported += $this->lise_instance->attachment_count;
+                        $this->ajax_feedback['attachment-count'] = $this->attachments_imported;
+                        $this->ajax_feedback['file-exists-count'] = $this->file_exists_count;
+                        $this->ajax_feedback['file-saved-count'] = $this->file_saved_count;
+                        $this->ajax_feedback['file-error-count'] = $this->file_error_count;                        
+                    }
+
+                    if ($this->wp_xml->at_xml_end) {  
+                        // display messages after status completed
+                        $this->messageManager->addLangMessage( 'message_imported_attachments',
+                            $this->attachments_imported, $this->lise_instance->instance_name );
+                        $this->ajax_status = 'content_update';
+                        $this->ajax_position = 0;
+                    }
+                    break;
+
+                case 'content_update':
+                    if ( $this->ajax_position==0 ) {    // setup 'content update' feedback message
+                        $message = 'Updating content <span class="feedback lise-count">0</span> of '.
+                            $this->lise_instance->record_count.' items in '.$this->lise_instance->instance_name.' - images: <span class="feedback file-exists-count">0</span> exist locally'.
+                            ', <span class="feedback file-saved-count">0</span> remote files saved locally'.
+                            ', <span class="feedback file-error-count">0</span> file errors.';
+                        $this->messageManager->addMessage( $message );
+                        $this->file_exists_count = 0;   // reset file counts
+                        $this->file_saved_count = 0;
+                        $this->file_error_count = 0;   
+                    }
+
+                    $items = $this->lise_instance->get_items($this->ajax_position, $this->batch_size);
+                    
+                    $this->update_content($items, $source_base_urls);
+                    //$this->ajax_position = $this->lise_instance->current_item;
+
+                    // update the feedback message
+                    $this->ajax_feedback['lise-count'] = $this->content_updated;
+                    $this->ajax_feedback['file-exists-count'] = $this->file_exists_count;
+                    $this->ajax_feedback['file-saved-count'] = $this->file_saved_count;
+                    $this->ajax_feedback['file-error-count'] = $this->file_error_count;   
+
+                    if ($this->lise_instance->at_end) {  
+                        $this->messageManager->addLangMessage( 'message_content_updated',
+                            $this->content_updated );
+                        $this->ajax_status = 'completed';
+                    }
+                    break;
+
+                case 'completed':
+                    // see below
+                    break;
             }
 
-            // get all attachments in the wp_xml file
+            if ($this->ajax_status == 'completed') {
+                $this->messageManager->addMessage( 'Import Completed.' );
+                if ($this->file_error_count > 0) {
+                    $this->messageManager->addMessage( 'Recommended: Retry import of attachments - as the remote server load may be high. '.$this->file_error_count.' file errors.' );
+                }
+            }
 
-            // !!!!!!!!
-
-
+            $this->set_progress( ($this->posts_imported + $this->attachments_imported + 
+                $this->content_updated) , $this->progress_total() );
 
         } catch (\exception $e) {
             $this->messageManager->addError('Import error: '.$e->getMessage() );
-
         }
-
-        if ($this->lise_instance->import_count==0) {
-            $this->messageManager->addLangError( 'error_no_import_items' );
-        } else {
-            $this->messageManager->addLangMessage( 'message_imported_items', $this->lise_instance->import_count, $this->lise_instance->instance_name );
-        }
-        $new_categories_added = $this->lise_instance->new_categories_added;
-        if (!empty($new_categories_added)) {
-            $this->messageManager->addLangMessage( 'message_new_categories_added', count($new_categories_added) ,implode(', ', $new_categories_added) );
-        }
-
 
     }
 
 
-    // /**
-    //  *  start the ajax import/export
-    //  */
-    // public function ajax_process()
-    // {
-    //     $this->create_config_options(); // get the config options
-    //     $this->load_config();   // previously saved values
-    //     $this->get_config_values($_POST);  // get the values from the form
-    //     $this->save_config();
-    //     $this->lise_instance = new lise_interface( $this->config_options['lise_instance']->value );
-    //     $this->field_map = $this->lise_instance->generate_field_map(); // get the field map
-    //     $this->get_field_map_values();
+    /**
+     *  get the total number of tasks for the progress bar
+     *  @return int
+     */
+    public function progress_total()
+    {
+        $import_total = $this->wp_xml->wp_post_count + $this->wp_xml->wp_attachment_count +
+            $this->wp_xml->wp_post_count;   // posts, attachments, content update
+        return $import_total;
+    }
 
-    //     $this->import_wp_xml_to_LISE();
-    // }
+
+    public function retry_ajax_process()
+    {
+        if ($this->retry=='attachment') {
+            $this->ajax_status = 'attachment';   
+            $this->ajax_position = 0;
+            $this->attachments_imported = 0;
+            $this->file_exists_count = 0;
+            $this->file_saved_count = 0;
+            $this->file_error_count = 0;
+        }
+    }
+
+
+    public function update_content($items, $source_base_urls)
+    {
+        $item_count = 0;
+        // get the fields to update
+        $update_fields = [];
+        foreach ($this->field_map as $field) {
+            if ( in_array($field->dest_fd_type, $this->content_update_types) ) {
+                $update_fields[] = $field->dest_field;
+            }
+        }
+
+        // update the content items in the batch
+        $lise_instance = $this->lise_instance->lise_instance;
+        // Create a new DOMDocument and set encoding
+        $dom = new \DOMDocument('1.0', 'UTF-8');
+        foreach ($items as $item) {
+            $item_count++;
+            $full_item = $lise_instance->LoadItemByIdentifier('item_id', $item['item_id']);
+            foreach ($update_fields as $field) {
+                $content_value = (string)$full_item->{$field};
+                if (empty($content_value)) continue;
+
+                // Load the HTML content & suppress errors due to malformed HTML with @
+                @$dom->loadHTML('<?xml encoding="UTF-8">' . $content_value);  // add encoding to prevent errors
+                // Iterate over the <img> tags and change their src attributes
+                $images = $dom->getElementsByTagName('img'); // Get all <img> tags
+                foreach ($images as $img) {
+                    $oldSrc = $img->getAttribute('src');
+                    $newSrc = $this->move_file_to_uploads_location($oldSrc);
+                    $newSrc = ltrim($newSrc, DIRECTORY_SEPARATOR);
+                    if (!empty($newSrc)) {
+                        $img->setAttribute('src', $newSrc);
+                    }
+                }
+                $content_value = $dom->saveHTML();  // convert back to string
+                // replace [caption] shortcode with <figure> & <figcaption>
+                $content_value = $this->replace_caption_shortcode($content_value);
+
+                $full_item->{$field} = $content_value;
+                $lise_instance->SaveItem( $full_item );
+            }
+
+        }
+
+        $this->ajax_position += $item_count;
+        $this->content_updated += $item_count;
+        // $current_progress = $this->posts_imported + $this->attachments_imported + $this->content_updated;
+        // $this->set_progress( $current_progress , $this->progress_total() );
+        return $item_count;
+    }
+
+
+    /**
+     *  replace [caption] shortcode with <figure> & <figcaption>
+     *  @param string $content
+     *  @return string
+     */
+    public function replace_caption_shortcode($content)
+    {
+        $pattern = '/\[caption id="([^"]*)" align="([^"]*)" width="([^"]*)"\](.*?)\[\/caption\]/s';
+        $new_content = preg_replace_callback($pattern, function($matches) {
+            // Extract the content inside the caption
+            $content = $matches[4];
+            // Separate the image and the caption text
+            preg_match('/(<img[^>]+>)(.*)/s', $content, $contentMatches);
+            $imgTag = $contentMatches[1];
+            $captionText = trim($contentMatches[2]);
+            $new_content = '<figure id="' . $matches[1] . '" class="align' . $matches[2] . '" style="width:' . $matches[3] . 'px;">' . $imgTag . '<figcaption>' . $captionText . '</figcaption></figure>';
+            return $new_content;
+        }, $content);
+
+        return $new_content;
+    }
 
 
 

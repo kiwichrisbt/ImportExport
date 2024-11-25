@@ -66,6 +66,9 @@ class lise_interface
     public $default_owner_id = null;  // default owner id for LISE items
     public $multi_categories_truncated = 0;  // count of items with multiple categories truncated
     public $import_count = 0;  // count of items imported
+    public $attachment_count = 0;  // count of attachments imported
+    public $current_item = 0;  // current item being processed
+    public $at_end = false;  // flag for end of processing
 
 
 
@@ -88,6 +91,8 @@ class lise_interface
             $result     = $lise_items->Execute(true);
             $this->record_count = $result->RecordCount();
             $this->get_category_list();
+
+            // $this->delete_all_categories();  // only for testing
         }
 
     }
@@ -127,6 +132,7 @@ class lise_interface
         // add the custom fields
         $fielddefs = $this->lise_instance->GetFieldDefs();
         foreach($fielddefs as $fielddef) {
+            $dest_fd_type = $fielddef->type ?? 'string';
             $dest_data_type = isset(self::LISE_FD_TYPES[$fielddef->type]) ? self::LISE_FD_TYPES[$fielddef->type] : 'string';
             if ($dest_data_type=='categories') {
                 $type = $fielddef->GetOptionValue('subtype', 'Dropdown');
@@ -134,7 +140,7 @@ class lise_interface
                     $dest_data_type = 'categories_multi';
                 }
             }
-            $field_map[$fielddef->alias] = new field_map_item($fielddef->alias, '', $dest_data_type, $fielddef->required);
+            $field_map[$fielddef->alias] = new field_map_item($fielddef->alias, '', $dest_data_type, $dest_fd_type, $fielddef->required);
         }
 
         return $field_map;
@@ -143,6 +149,10 @@ class lise_interface
 
     /**
      *  import the given items into the LISE instance
+     *  @param array $items - the items to import
+     *  @param array $field_map - the field map for the items
+     *  @param string $source_base_urls - comma separated list of base urls for the LISE instance
+     *  @return integer - the number of items imported
      */
     public function import_items($items, $field_map, $source_base_urls)
     {
@@ -153,11 +163,24 @@ class lise_interface
             $lise_item = $this->lise_instance->InitiateItem();
 
             foreach ($field_map as $mapped_field) {    
-                if ($mapped_field->dest_field!='create_time') {  // we have to set it manually later
+                if ($mapped_field->dest_field!='create_time' // we have to set it manually later
+                        && $mapped_field->source_field!='wp_attachments'   // special case handled separately
+                        && !empty($mapped_field->source_field)) {  
                     $lise_item->{$mapped_field->dest_field} = $this->filter_data($mapped_field->dest_data_type, $item[$mapped_field->source_field]);
                 }
             }
             if ($auto_active) $lise_item->active = '1';
+
+            // set 'key3' if source_id is set - for later cross-referencing
+            if (!empty($item['source_id'])) $lise_item->key3 = $item['source_id'];
+
+            // if no alias set, generate one from old wp id
+            if (empty($lise_item->alias)) {
+                // if title starts with a number, add an 'a_'
+                $alias = preg_replace('/^(\d)/', 'a_$1', $lise_item->title);
+                $lise_item->alias = api::GenerateAlias($alias, $this->instance_name );
+            }
+
 
             try {
                 $this->lise_instance->SaveItem($lise_item);
@@ -173,16 +196,13 @@ class lise_interface
             }
         }
 
-        // $this->messageManager->addLangMessage( 'message_imported_items', $import_count, $this->instance_name );
         $this->import_count += $import_count;
         $this->record_count += $import_count;
-        // if (!empty($this->new_categories_added)) {
-        //     $this->messageManager->addLangMessage( 'message_new_categories_added', count($this->new_categories_added) ,implode(', ', $this->new_categories_added) );
-        // }
         if ($this->multi_categories_truncated) {
             $this->messageManager->addLangError( 'error_multiple_categories', (string)$this->multi_categories_truncated);
         }
 
+        return $import_count;
     }
 
 
@@ -256,6 +276,7 @@ class lise_interface
 
                 $cat_array = is_array($data) ? $data : implode(',', $data);
                 $cat_ids = [];
+                if (empty($this->category_list)) $this->get_category_list(); // just make sure it's been loaded!
                 foreach ($cat_array as $cat_alias => $cat_name) {
                     if (!isset($this->category_list[$cat_alias])) {
                         $this->add_category($cat_alias, $cat_name);
@@ -337,6 +358,22 @@ class lise_interface
 
 
     /**
+     *  delete all categories from the LISE instance - only intended for testing
+     */
+    public function delete_all_categories()
+    {
+        $lise_cats = $this->lise_instance->GetCategoryQuery([]);
+        $result = $lise_cats->Execute(true);
+        while ($result && $row = $result->FetchRow()) {
+            $this->lise_instance->DeleteCategoryById($row['category_id']);
+        }
+        $imp_exp_mod = \cms_utils::get_module('ImportExport');
+        $this->messageManager->addMessage( 'Deleted all categories from LISE instance ' );
+        $this->category_list = [];
+    }
+
+
+    /**
     *  set lise items create_time - LISE sets it to NOW() on create, and NOT on update
     *  so we have to set it directly
     */
@@ -349,6 +386,67 @@ class lise_interface
 				  'SET create_time = ? WHERE item_id = ?';
         $result = $db->Execute($query, [$create_time, $lise_item->item_id]);
     }
+
+
+    /**
+     *  import the given attachments into the LISE instance
+     *  @param array $attachments - the attachments to import
+     *  @param array $field_map - the field map for the attachments
+     *  @param string $source_base_urls - comma separated list of base urls for the LISE instance
+     *  @param string $attachments_field - the field in the LISE instance to store the attachments
+     */
+    public function import_attachments($attachments, $field_map, $source_base_urls, $attachments_field)
+    {
+        $this->source_base_urls = empty($source_base_urls) ? [] : explode(',', $source_base_urls);
+        foreach ($attachments as $attachment) {
+            $parent_id = $attachment['wp_post_parent'];
+
+            $lise_item = $this->lise_instance->LoadItemByIdentifier('key3',$parent_id);
+            if (!$lise_item) {
+                $this->messageManager->addError( 'Error - parent item not found for attachment' );
+                continue;
+            }
+
+            try {
+                $attachment_value = (string)$lise_item->{$attachments_field};
+                $attachments = empty($attachment_value) ? [] : explode(',', $attachment_value);
+                if ( !empty($attachment['local_relative_url']) ) {
+                    $attachments[] = $attachment['local_relative_url'];
+                    $lise_item->{$attachments_field} = implode(',', $attachments);
+                    $this->lise_instance->SaveItem($lise_item);
+                    $this->attachment_count++;
+                }
+
+            } catch (\Exception $e) {
+                $this->messageManager->addError( $e->getMessage() );
+            }
+        }
+    }
+
+
+    /**
+     *  get a batch of lise items
+     *  @return array of items
+     */
+    public function get_items($position, $batch_size)
+    {
+        $params = [];
+        $params['pagelimit'] = $batch_size;
+        // $params['pagenumber'] = $position +1;
+        $params['pagenumber'] = intdiv( $position , $batch_size) +1;
+        $lise_items = $this->lise_instance->GetItemQuery($params);
+        $result = $lise_items->Execute(true);
+        $items = [];
+        while ($result && $row = $result->FetchRow()) {
+            $items[] = $row;
+        }
+        if ( $position + count($items) >= $this->record_count) {
+            $this->at_end = true;
+        }
+
+        return $items;
+    }
+
 
 
 }

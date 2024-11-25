@@ -24,34 +24,40 @@ if ( empty($params['do']) ) {
 $data = [];
 switch ($params['do']) {
 
-    case 'get_progress':
-        $progress = $this->GetPreference(preference_name: $this::PROGRESS_PREFERENCE);
-// // test hack
-// $progress = $progress + 10;
-// $this->SetPreference($this::PROGRESS_PREFERENCE, $progress);
-// // end test hack
-        $data = ['progress' => $progress];
-        break;
-
-
-    case 'start_ajax_processing':
-        $details = json_decode( $this->GetPreference($this::AJAX_PROCESSING_DETAILS, null) );
-        // $details = $this->GetPreference($this::AJAX_PROCESSING_DETAILS, null);
-        if ( empty($details) || !in_array($details->type, $this::IMPORT_EXPORT_TYPES) ||
-            $params['key']!==$details->key ) {
-            $this->OutputAjaxError('Invalid request to start_ajax_processing'); // & die
+    case 'ajax_process':
+        $supplied_key = isset($_REQUEST['key']) ? $_REQUEST['key'] : '';
+        $saved_details = $this->get_ajax_processing_details($supplied_key);
+        if ( empty($saved_details) ) {
+            $this->OutputAjaxError('Invalid request to ajax_process'); // & die
             return; // not needed - just to make it obvious
-        } 
+        }
 
         // start the ajax processing
-        $type_class = ImportExport::CLASS_PREFIX.$details->type;
+        $type_class = ImportExport::CLASS_PREFIX.$saved_details->type;  // saved as array, read as object!
         $import_export = new $type_class();
-        $import_export->ajax_process();
-        $data = ['success' => true];
-        $messages = $import_export->messageManager->getMessages();
-        $errors = $import_export->messageManager->getErrors();
-        if ( !empty($messages) ) $data['messages'] = $messages;
-        if ( !empty($errors) ) $data['errors'] = $errors;
+        // could probably move the following to ... somewhere else
+        $import_export->ajax_status = $saved_details->ajax_status;
+        $import_export->ajax_position = $saved_details->ajax_position;
+        $import_export->file_exists_count = $saved_details->file_exists_count;
+        $import_export->file_error_count = $saved_details->file_error_count;
+        $import_export->file_saved_count = $saved_details->file_saved_count;
+
+        if ( !empty($_REQUEST['retry']) ) $import_export->retry = $_REQUEST['retry'];
+
+        $import_export->ajax_process($saved_details);
+
+        // pass results back to the client browser
+        if ( !empty($import_export->progress) ) {
+            $data = [
+                'key' => $import_export->ajax_key,
+                'progress' => $import_export->progress,
+                'status' => $import_export->ajax_status,
+                'position' => $import_export->ajax_position,
+                'messages' => $import_export->messageManager->getMessages(), // test this instead of the below
+                'errors' => $import_export->messageManager->getErrors(),
+                'feedback' => $import_export->ajax_feedback,    // update existing messages e.g. count info
+            ];
+        }
         break;
 
 }

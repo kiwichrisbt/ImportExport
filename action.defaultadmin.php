@@ -21,8 +21,6 @@ if ( in_array( $selected_type, ImportExport::IMPORT_EXPORT_TYPES ) ) {
     $import_export = new $selected_type_class();
 }
 
-// check for change in selected type of import_export - if so, save it and reload page
-// if ( isset($params['submit']) && $params['submit']=='change_type' ) {
 if ( isset($params['submit']) ) {
 
     switch( $params['submit'] ) {
@@ -58,9 +56,6 @@ if ( isset($params['submit']) ) {
 }
 
 
-// output the template - unless not required $import_export step (e.g. updated by ajax)
-// if ( isset($import_export) && $import_export->display_template==false ) return;
-
 // set up the template
 $template_name = $import_export->template_name ?? 'defaultadmin.tpl';
 $tpl = $smarty->CreateTemplate( $this->GetTemplateResource($template_name), null, null, $smarty );
@@ -84,9 +79,5 @@ $tpl->display();
 if ( isset($import_export) ) {
     $import_export->ajax_key = null; // clear any previous key - data already saved & given to smarty 
 }
-
-// $old_max_exec_time = ini_set('max_execution_time', 0);  // get the current max_execution_time
-
-// ini_set('max_execution_time', $old_max_exec_time);  // reset the max_execution_time
 
 

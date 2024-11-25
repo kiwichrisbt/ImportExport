@@ -12,12 +12,13 @@ namespace ImportExport;
 abstract class ImportExportBase 
 {
     const LANG_LABEL_PREFIX = 'label_';
-    const INPUT_TYPES = ['text', 'textarea', 'select', 'checkbox', 'file_xml', 'submit', 'cancel+submit'];
-    const INPUT_TYPES_NOT_SAVED = ['submit', 'cancel+submit'];  // 'file_xml',
+    const INPUT_TYPES = ['text', 'textarea', 'select', 'checkbox', 'file_xml', 'submit', 'cancel'];
+    const INPUT_TYPES_NOT_SAVED = ['submit', 'cancel'];  // 'file_xml',
     const FIELDNAME_PREFIX = 'm1_';     // prefix for the form fieldname - as it's an admin form
     const CACHE_PREFIX = 'ImportExport_';    // prefix for the cache key
-    const PROGRESS_PREFERENCE = 'ImportExport_progress'; // preference key for progress - same as module class
     const AJAX_PROCESSING_DETAILS = 'ImportExport_ajax_processing_details'; // preference key for ajax processing details - same as module class
+    const REMOVE_LEADING_DIRS = ['wp-content', 'uploads'];
+    const FILE_GET_CONTENTS_TIMEOUT = 5;  // seconds
 
     public $mod;
     public $type = '';      // type of import/export
@@ -36,11 +37,19 @@ abstract class ImportExportBase
     public $destination_name = '';          // name of the destination system - title for display
     public $field_map = [];                 // array of destination field => field_map_item's 
     public $default_field_mappings = [];    // source field => destination field
+    public $content_update_types = [];      // array of content types, to be updated after import
     public $field_map_values = [];          // array of field_map_item values
     public $batch_size = 10;                // default - can be updated by the child class
-    public $progress = null;                   // progress bar percentage - also saved in preferences
-    // public $post_template_processing = false;  // set to true if processing required after template display
+    public $progress = null;                // progress bar percentage - also saved in preferences
     public $ajax_key = null;                // key for ajax processing - unset after use
+    public $ajax_status = null;             // status: started, ... , complete
+    public $ajax_position = null;           // position in the import/export process
+    public $ajax_feedback = [];             // feedback for the ajax processing - 'class' => 'message'
+    public $uploads_location = null;        // location for uploaded files - subdir of uploads
+    public $file_exists_count = 0;          // count of files that already exist in the uploads directory
+    public $file_error_count = 0;           // count of files that had errors saving
+    public $file_saved_count = 0;           // count of files that were saved
+    public $retry = null;                   // if set, retry the processing, e.g. attachments
     public $messageManager = null;          // MessageManager instance (singleton)
     public $messages = [];                  // array of messages for the import/export
     public $errors = [];                    // array of errors for the import/export
@@ -51,7 +60,8 @@ abstract class ImportExportBase
     {
         $this->mod = \cms_utils::get_module('ImportExport');
         $this->messageManager = MessageManager::getInstance();
-        $this->set_progress($this->progress);     // should be null until import starts
+        $this->set_progress(null);     // should be null until import starts
+        $this->set_uploads_location(''); // can be updated by the child class
     }
 
 
@@ -72,8 +82,10 @@ abstract class ImportExportBase
     /**
      *  This function can optionally be implemented by the child class 
      *      - e.g. for ajax triggering of processing
+     *  @param object $saved_details - the saved details retrieved from the previous ajax processing
+     *                              - child class will handle the saved extra_details
      */
-    public function ajax_process() {}
+    public function ajax_process($saved_details) {}
 
 
     /**
@@ -91,7 +103,7 @@ abstract class ImportExportBase
             }
             $fieldname = $option->fieldname;
             switch ($option->inputtype) {
-                case 'cancel+submit':
+                case 'cancel':
                 case 'submit':
                     break;
 
@@ -253,46 +265,51 @@ abstract class ImportExportBase
     /**
      *  set the progress bar percentage
      */
-    public function set_progress($progress)
+    public function set_progress($count=null, $total=null)
     {
+        if ( is_null($count) || empty($total) ) {
+            $progress = null;   // progress bar not output
+        } else {
+            $progress = (int)($count / $total * 100);
+        }
         $this->progress = $progress;
-        $this->mod->SetPreference(self::PROGRESS_PREFERENCE, $progress);
     }
 
 
-    /**
-     *  get the progress bar percentage
-     *  @return string $progress - the progress percentage
-     */ 
-    public function get_progress()
-    {
-        $this->progress = $this->mod->GetPreference(self::PROGRESS_PREFERENCE);
-        return $this->progress;
-    }
-
 
     /**
-     *  save the details for the ajax processing
-     *  @return array of saved details
+     *  retrieve the details for ajax processing in progress
+     *  this code in module class - as import/export type is not known
+     *  @param string $key - required - the previously saved key for ajax processing
+     *  @return object|boolean array of saved details, or false if key incorrect
      */
-    public function get_ajax_processing_details()
+    public function get_ajax_processing_details($provided_key)
     {
-        $details = json_decode( $this->mod->GetPreference(self::AJAX_PROCESSING_DETAILS) );
-        return $details;
+        // call the module class method
+        return $this->mod->get_ajax_processing_details($provided_key);
     }
 
 
     /**
-     *  save the details for the ajax processing
-     *  @param string $type - the type of import/export
+     *  save the details for the ajax processing, key & type added to the details
+     *  @param array $extra_details - extra details to save 
+     *  sets $this->ajax_key - the key for the ajax processing
+     *      e.g. ['status' => 'started', 'position' => 0]...
      */
-    public function set_ajax_processing_details($type, $key)
-    {
-        $details = [
-            'type' => $type,
-            'key' => $key
-        ];
-        $this->mod->SetPreference(self::AJAX_PROCESSING_DETAILS, json_encode($details));
+    public function set_ajax_processing_details($extra_details)
+    {   
+        $ajax_details = (object)$extra_details;
+        // set the important details by default
+        $ajax_details->type = $this->type;
+        $this->ajax_key = md5(uniqid(rand(), true));
+        $ajax_details->ajax_key = $this->ajax_key;
+        $ajax_details->ajax_status = $this->ajax_status;
+        $ajax_details->ajax_position = $this->ajax_position;
+        $ajax_details->file_exists_count = $this->file_exists_count;
+        $ajax_details->file_error_count = $this->file_error_count;
+        $ajax_details->file_saved_count = $this->file_saved_count;
+
+        $this->mod->SetPreference(self::AJAX_PROCESSING_DETAILS, json_encode($ajax_details));
     }
 
 
@@ -302,6 +319,140 @@ abstract class ImportExportBase
     public function reset_ajax_processing_details()
     {
         $this->mod->SetPreference(self::AJAX_PROCESSING_DETAILS, null);
+    }
+
+
+    public function check_uploads_dest_dir($subdir)
+    {
+        $uploads_path = \CmsApp::get_instance()->GetConfig()['uploads_path'];
+        $dest_dir = cms_join_path($uploads_path, $subdir);
+        $Ok = ( is_writable( $dest_dir ) );
+        if (!$Ok) {
+            $this->messageManager->addError( ('Cannot access destination directory: '+ $dest_dir) );
+        }
+        return $Ok;
+    }
+
+
+    /**
+     *  move a file to the uploads location
+     *  @param string $remote_file_url - the remote file url
+     *  @return string $local_relative_url - the local relative url
+     */
+    public function move_file_to_uploads_location($remote_file_url)
+    {
+        // check if file is already in the uploads directory
+        $local_relative_url = null;
+        $file_details = $this->get_file_details($remote_file_url);
+        if (file_exists($file_details->local_path)) {
+            // no need to do anything...
+            $local_relative_url = $file_details->local_relative_url;
+            $this->file_exists_count++;
+
+        } else {
+            // get file from remote url, with timeout
+            $ctx = stream_context_create(['http' => ['timeout' => self::FILE_GET_CONTENTS_TIMEOUT]]);
+            $file = file_get_contents($remote_file_url, false, $ctx);           
+
+            if ($file === false) {
+                $this->file_error_count++;  // but also output error message
+                $this->messageManager->addError( 'Error getting file: '.$remote_file_url);
+            } else {
+                // save file to uploads directory, check if directory exists, or create it
+                if (!file_exists($file_details->local_dir)) {
+                    mkdir($file_details->local_dir, 0777, true);
+                }
+                // save file
+                if (file_put_contents($file_details->local_path, $file)===false) {
+                    $this->file_error_count++;  // but also output error message
+                    $this->messageManager->addError( 'Error saving file: '.$file_details->local_path);
+                } else {
+                    $local_relative_url = $file_details->local_relative_url;
+                    $this->file_saved_count++;
+                }
+            }
+        }  
+        return $local_relative_url;
+    }
+
+
+    public function move_files_to_uploads_location(&$items)
+    {
+        foreach ($items as &$item) {
+            $remote_file_url = $item['wp_attachments'];
+            $local_relative_url = $this->move_file_to_uploads_location($remote_file_url);
+            if (!empty($local_relative_url)) {
+                $item['local_relative_url'] = $local_relative_url;
+            }
+        }
+    }
+
+
+    /**
+     *  set the uploads location for the files - try to create $subdir or just use uploads dir
+     */ 
+    public function set_uploads_location($subdir)
+    {
+        $uploads_path = \CmsApp::get_instance()->GetConfig()['uploads_path'];
+        $dest_dir = empty($subdir) ? $uploads_path : cms_join_path($uploads_path, $subdir);
+        $dest_dir = rtrim($dest_dir, DIRECTORY_SEPARATOR).DIRECTORY_SEPARATOR;  // add trailing '/
+
+        if ( is_writable( $dest_dir ) ) {   // dir exists
+            $this->uploads_location = $dest_dir;
+            
+        } elseif ( mkdir($dest_dir, 0777, true) ) {
+            $this->uploads_location = $dest_dir;    // created dir
+
+        } else {
+            $this->messageManager->addError( 'Cannot access destination directory: '.$dest_dir );
+            $this->uploads_location = $uploads_path;    // use default uploads dir
+        }
+    }
+
+
+    /**
+     *  get the local file name from the remote file name
+     *  @param string $remote_file_url - the remote file name
+     *  @return object $local_file - the local file with all useful details as member variables
+     */
+    public function get_file_details($remote_file_url)
+    {
+        $file_details = new \stdClass;
+        $file_details->remote_file_url = $remote_file_url;
+        
+        $remote_url_parts = parse_url($remote_file_url);
+        $file_details->remote_scheme = $remote_url_parts['scheme'];
+        $file_details->remote_host = $remote_url_parts['host'];  // full domain
+        $file_details->remote_path = $remote_url_parts['path'];  // includes leading '/' & filename
+        $file_details->filename = basename($file_details->remote_path);
+
+        // get local path & url - remove leading directories
+        $tmp_path = trim($file_details->remote_path, DIRECTORY_SEPARATOR); // remove '/'s
+        $tmp_path_parts = explode('/', $tmp_path);  // split into parts
+        foreach (self::REMOVE_LEADING_DIRS as $remove_dir) {    // remove leading directories
+            if ($tmp_path_parts[0]==$remove_dir) {
+                array_shift($tmp_path_parts);
+            }
+        }
+        $tmp_path = implode(DIRECTORY_SEPARATOR, $tmp_path_parts); // path + filename
+        $file_details->local_path = $this->uploads_location.$tmp_path;
+        // local url - relative to root
+        $root_path = \CmsApp::get_instance()->GetConfig()['root_path'];
+        $file_details->local_relative_url = str_replace($root_path, '', $file_details->local_path);
+        $file_details->local_dir = dirname($file_details->local_path);
+
+        return $file_details;    
+    }
+    
+
+    /**
+     *  test if fopen is enabled
+     *  @return boolean $fopen_enabled - TRUE if fopen is enabled
+     */
+    public function fopen_enabled()
+    {
+        $allow_url_fopen = ini_get('allow_url_fopen');
+        return (boolean)$allow_url_fopen;
     }
 
 

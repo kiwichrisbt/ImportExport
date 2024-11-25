@@ -106,6 +106,11 @@ $lang['label_wp_xml_to_LISE_auto_create_categories'] = 'Auto create categories f
 // label_wp_xml_to_LISE_default_owner 
 $lang['label_wp_xml_to_LISE_default_owner'] = 'Select Default Owner - if WP post author not a CMSMS Backend User this default author will be used. Note: use "_" instead of spaces or "-" in the username.';
 $lang['label_wp_xml_to_LISE_submit_completed'] = 'Import Completed';
+// label_wp_xml_to_LISE_uploads_location
+$lang['label_wp_xml_to_LISE_uploads_location'] = 'Uploads Location - relative to the uploads directory .e.g. blog-images';
+$lang['label_wp_xml_to_LISE_submit_retry_attachments'] = 'Retry Attachments';
+$lang['label_wp_xml_to_LISE_cancel_ajax'] = 'Cancel Import';
+$lang['label_wp_xml_to_LISE_cancel_import'] = 'Cancel Import';
     $lang['legend_postmeta_mapping'] = 'Map Wordpress&trade; Meta Data';
 
 
@@ -113,7 +118,9 @@ $lang['label_wp_xml_to_LISE_submit_completed'] = 'Import Completed';
 $lang['message_file_uploaded'] = 'File %s is successfully uploaded.';
 $lang['message_lise_deleted_all_items'] = 'All %s items deleted from LISE instance: %s';
 $lang['message_imported_items'] = 'Imported %s items into %s';
+$lang['message_imported_attachments'] = 'Imported %s attachments';
 $lang['message_new_categories_added'] = '%s New categories added: %s';
+$lang['message_content_updated'] = 'Content updated for %s items';
 
 $lang['module_description'] = 'This module, adds the ability to Import & Export content.';
     $lang['msg_wpfound'] = 'WordPress&trade; installation found';

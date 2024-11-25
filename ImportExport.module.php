@@ -28,7 +28,7 @@
 
 class ImportExport extends CMSModule
 {
-    const MODULE_VERSION = '1.0beta4';
+    const MODULE_VERSION = '1.0beta6';
 
     const IMPORT_EXPORT_TYPES = [
         'wp_xml_to_LISE',
@@ -36,7 +36,6 @@ class ImportExport extends CMSModule
     ];
     const CLASS_PREFIX = 'ImportExport\impexp_';
     const LANG_PROMPT_SUFFIX = '_prompt';
-    const PROGRESS_PREFERENCE = 'ImportExport_progress';
     const AJAX_PROCESSING_DETAILS = 'ImportExport_ajax_processing_details';
 
     public function GetName() { return 'ImportExport'; }
@@ -104,6 +103,22 @@ class ImportExport extends CMSModule
         die( json_encode( ['error' => $error]) ); 
     }
 
+
+
+    /**
+     *  retrieve the details for ajax processing in progress
+     *  this code in module class - as import/export type is not known - see ImportExportBase for set & reset
+     *  @param string $key - required - the previously saved key for ajax processing
+     *  @return object|null array of saved details, or null if key incorrect
+     */
+    public function get_ajax_processing_details($provided_key)
+    {
+        $saved_details = json_decode( $this->GetPreference(self::AJAX_PROCESSING_DETAILS) );
+        if ( empty($saved_details) || $provided_key!==$saved_details->ajax_key ) {
+            return null;
+        }
+        return $saved_details;
+    }
 
 
 }

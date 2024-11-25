@@ -21,8 +21,13 @@ class config_option
     public $size = 80;          // size of the input field
     public $rows = 3;           // number of rows for textarea fields
     public $divclass = '';      // class for the div
+    public $addclass = '';      // additional class for the input tag/button  
     public $inputproperties = '';// additional properties for the input field
     public $uiicon = '';        // icon for the submit button, exclude prefix 'ui-icon-'
+    public $inline = null;      // optionally output div container start & end, to inline multiple inputs
+                                // null (default - not inline), inline_start, inline_end, inline 
+                                
+
 
 
 

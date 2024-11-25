@@ -19,6 +19,7 @@ class wp_xml_interface
         'description' => 'description',
         'content' => 'content:encoded',
         'excerpt' => 'excerpt:encoded',
+        'wp_post_id' => 'wp:post_id',
         'wp_post_date' => 'wp:post_date',
         'wp_post_name' => 'wp:post_name',
         'wp_status' => 'wp:status',
@@ -26,6 +27,8 @@ class wp_xml_interface
         'wp_post_type' => 'wp:post_type',
         'category' => 'category',
         'post_tag' => 'post_tag',
+        'is_sticky' => 'wp:is_sticky',
+        'wp_attachments' => 'wp:attachment_url',
     ];
 
 
@@ -60,14 +63,7 @@ class wp_xml_interface
         $this->wp_xml = simplexml_load_file($filename, 'SimpleXMLElement', LIBXML_NOCDATA);
         
         // get basic details
-        $this->wp_title = $this->wp_xml->channel->title;
-        $this->wp_site_url = $this->wp_xml->channel->link;
-        // $items = $this->wp_xml->channel->item;
-        $this->get_item_counts();
-        $this->wp_item_count = $this->wp_xml->channel->item->count();
-        $authors = $this->wp_xml->channel->xpath('wp:author');
-        $this->wp_author_count = count($authors);
-
+        $this->get_wp_details();
         $this->get_wp_fields();
     }
 
@@ -134,11 +130,13 @@ class wp_xml_interface
                     break;
 
                 default:
-                    $item[$name] = (string)$node[0];   // convert all values to strings
+                    $item[$name] = (string)($node[0] ?? '');   // convert all values to strings
             }
 
             
         }
+        // special case - save the post_id as field source_id
+        $item['source_id'] = $item['wp_post_id'];   // already a string
 
         return $item;
     }
@@ -169,10 +167,20 @@ class wp_xml_interface
 
 
     /**
-     *  get the counts of items in the WP xml - both posts and attachments
+     *  get the stats for the WP xml - both posts and attachments
      */
-    public function get_item_counts()
+    public function get_wp_details()
     {
+        if ( empty($this->wp_xml->channel) ) return;
+
+        $this->wp_title = $this->wp_xml->channel->title;
+        $this->wp_site_url = $this->wp_xml->channel->link;
+        $this->wp_item_count = !empty($this->wp_xml->channel->item) ? 
+            $this->wp_xml->channel->item->count() : 0;
+        $authors = $this->wp_xml->channel->xpath('wp:author');
+        $this->wp_author_count = count($authors);
+
+        // count the posts and attachments
         $this->wp_post_count = 0;
         $this->wp_attachment_count = 0;
         foreach ($this->wp_xml->channel->item as $item) {
