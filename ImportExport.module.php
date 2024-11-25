@@ -42,7 +42,6 @@ class ImportExport extends CMSModule
     public function GetFriendlyName() { return $this->Lang('friendlyname'); }
     public function GetVersion() { return self::MODULE_VERSION; }
     public function MinimumCMSVersion() { return '2.2'; }
-    public function GetHelp() { return @file_get_contents(__DIR__.'/readme.md'); }
     public function GetAuthor() { return 'KiwiChris'; }
     public function GetAuthorEmail() { return 'chris@binnovative.co.uk'; }
     public function GetChangeLog() { return cmsms()->GetSmarty()->fetch('module_file_tpl:ImportExport;changelog.tpl'); }
@@ -59,11 +58,21 @@ class ImportExport extends CMSModule
 
 
 
+    public function GetHelp() 
+    { 
+        $path = $this->GetModuleURLPath();
+        $help = '<link rel="stylesheet" type="text/css" href="'.$path.'/lib/css/importexport_help.css">';
+        $help .= @file_get_contents(__DIR__.'/readme.md');
+        return $help; 
+    }
+
+
     /**
      * output the css and js file links to be included in the head for the admin interface
      * @return string
      */
-    public function get_header_css_js() {
+    public function get_header_css_js() 
+    {
         if (cms_utils::get_app_data('ImportExport_js_css_loaded')) return '';
         $path = $this->GetModuleURLPath();
         $admin_css_js = '

@@ -1,4 +1,3 @@
-<style>.module-help-wrapper p {margin-bottom:1rem;}</style>
 <div class="module-help-wrapper">
 
 <p>This CMS Made Simple module, provides the functionality to Import & Export content. Including importing Wordpress Posts or Pages to Content Manager or a LISE instance.</p>
@@ -8,12 +7,12 @@
     <li>CGBlog to a LISE Instance - in development</li>
     <li>Import Wordpress Pages to Content Manager - in development</li>
     <li>...</li>
-    <li>... please contact me if you have other requirements for import/export of content. </li>
+    <li>... please contact me if you have other requirements for import/export of content. Sponsorship welcome.</li>
 </ul>
 <br>
 
 <h3>Requirements</h3>
-<p><b>fopen</b> - should be enabled</p>
+<p><b>fopen</b> - should be enabled.</p>
 <p>If fopen is disabled a warning message will be displayed, and functionality will be limited. The module will not be able to import any remote images or attachments.</p>
 <ul>
     <li>Import Wordpress Posts to a LISE instance</li>
